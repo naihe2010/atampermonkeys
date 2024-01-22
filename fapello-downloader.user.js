@@ -5,12 +5,13 @@
 // @description  fapello downloader
 // @author       Alf <naihe2010@126.com>
 // @match        https://fapello.su/*/
-// @match        https://fapello.su/*/page-/
 // @match        https://fapello.su/*/*/
 // @require      http://libs.baidu.com/jquery/2.0.0/jquery.min.js
 // @grant        GM_openInTab
 // @grant        GM_download
 // @grant        GM_notification
+// @grant        GM_getValue
+// @grant        GM_setValue
 // @grant        window.close
 // ==/UserScript==
 
@@ -22,45 +23,60 @@
     // main page
     let content = $("#content");
     if (content.length > 0) {
-        let alist = content.find("a");
-        let tabs = [];
-        for (let index = 0; index < alist.length; ++ index) {
-            let tab = GM_openInTab(alist[index].href);
-            tabs.push(tab);
+        debugger;
+        let urltokens = window.location.href.split("/", 4);
+        let urlstart = urltokens.join("/");
+        let start_url = "fapello_start_" + urlstart;
+        if (GM_getValue(start_url, false) == true) {
+            start_download();
         }
 
-        let quit = false;
-        let nextbtns = $(".bg-white");
-        if (nextbtns.length > 0) {
-            GM_notification({
-                text: "find next page, abort ?",
-                title: "abort",
-                timeout: 10 * 1000,
-                onclick: () => {
-                    console.log("next page abort by user");
-                    quit = true;
-                }
-            });
+        $(content).before("<input type=button value='Download All' id='download_all' />");
+        $("#download_all").click(start_download);
 
-            let checkInterval = setInterval(function() {
-                let opened = false;
-                for (let index = 0; index < tabs.length; ++ index) {
-                    let tab = tabs[index];
-                    if (tab.closed === false) {
-                        opened = true;
-                        break;
-                    }
-                }
+        function start_download() {
+            GM_setValue(start_url, true);
+            let alist = content.find("a");
+            let tabs = [];
+            for (let index = 0; index < alist.length; ++ index) {
+                let tab = GM_openInTab(alist[index].href);
+                tabs.push(tab);
+            }
 
-                if (opened === false)
-                {
-                    clearInterval(checkInterval);
-                    if (quit === false) {
-                        let nexta = $("#next_page").find("a");
-                        nexta[0].click();
+            let quit = false;
+            let nextbtns = $(".bg-white");
+            if (nextbtns.length > 0) {
+                GM_notification({
+                    text: "find next page, abort ?",
+                    title: "abort",
+                    timeout: 10 * 1000,
+                    onclick: () => {
+                        console.log("next page abort by user");
+                        GM_setValue(start_url, null);
+                        quit = true;
                     }
-                }
-            }, 1000);
+                });
+
+                let checkInterval = setInterval(function() {
+                    let opened = false;
+                    for (let index = 0; index < tabs.length; ++ index) {
+                        let tab = tabs[index];
+                        if (tab.closed === false) {
+                            opened = true;
+                            break;
+                        }
+                    }
+
+                    if (opened === false)
+                    {
+                        clearInterval(checkInterval);
+                        if (quit === false) {
+                            let nexta = $("#next_page").find("a");
+                            nexta[0].click();
+                        }
+                    }
+                }, 1000);
+            }
         }
 
         return;
