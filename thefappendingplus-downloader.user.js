@@ -10,6 +10,8 @@
 // @grant        GM_openInTab
 // @grant        GM_download
 // @grant        GM_notification
+// @grant        GM_setValue
+// @grant        GM_getValue
 // @grant        window.close
 // ==/UserScript==
 
@@ -23,44 +25,60 @@
     // main page
     let content = $(".gallery");
     if (urltokens.length === 5 && content.length > 0) {
-        let alist = content.find("a");
-        let tabs = [];
-        for (let index = 0; index < alist.length - 1; ++ index) {
-            let tab = GM_openInTab(alist[index].href);
-            tabs.push(tab);
+        let urltokens = window.location.href.split("/", 4);
+        urltokens[3] = urltokens[3].replace(/-page-.*$/, "");
+        let start_url = "thefappending_start_" + urltokens[3];
+        if (GM_getValue(start_url, false) == true) {
+            start_download();
         }
 
-        let quit = false;
-        let nextbuts = $(".fusion-meta-info-wrapper :contains(Next)");
-        if (nextbuts.length > 0) {
-            GM_notification({
-                text: "find next page, abort ?",
-                title: "abort",
-                timeout: 10 * 1000,
-                onclick: () => {
-                    console.log("next page abort by user");
-                    quit = true;
-                }
-            });
+        $(content).before("<input type=button value='Download All' id='download_all' />");
+        $("#download_all").click(start_download);
 
-            let checkInterval = setInterval(function() {
-                let opened = false;
-                for (let index = 0; index < tabs.length; ++ index) {
-                    let tab = tabs[index];
-                    if (tab.closed === false) {
-                        opened = true;
-                        break;
-                    }
-                }
+        function start_download() {
+            GM_setValue(start_url, true);
+            let alist = content.find("a");
+            let tabs = [];
+            for (let index = 0; index < alist.length - 1; ++ index) {
+                let tab = GM_openInTab(alist[index].href);
+                tabs.push(tab);
+            }
 
-                if (opened === false)
-                {
-                    clearInterval(checkInterval);
-                    if (quit === false) {
-                        nextbuts[0].click();
+            let quit = false;
+            let nextbuts = $(".fusion-meta-info-wrapper :contains(Next)");
+            if (nextbuts.length == 0) {
+                GM_setValue(start_url, null);
+            } else {
+                GM_notification({
+                    text: "find next page, abort ?",
+                    title: "abort",
+                    timeout: 10 * 1000,
+                    onclick: () => {
+                        console.log("next page abort by user");
+                        GM_setValue(start_url, null);
+                        quit = true;
                     }
-                }
-            }, 1000);
+                });
+
+                let checkInterval = setInterval(function() {
+                    let opened = false;
+                    for (let index = 0; index < tabs.length; ++ index) {
+                        let tab = tabs[index];
+                        if (tab.closed === false) {
+                            opened = true;
+                            break;
+                        }
+                    }
+
+                    if (opened === false)
+                    {
+                        clearInterval(checkInterval);
+                        if (quit === false) {
+                            nextbuts[0].click();
+                        }
+                    }
+                }, 1000);
+            }
         }
 
         return;
